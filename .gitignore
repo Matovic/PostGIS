@@ -1,0 +1,21 @@
+# ignore hidden files
+.*
+
+# except .gitignore file
+!.gitignore
+
+# ignore zip files
+*.zip
+
+# ignore pdf files
+*.pdf
+
+# except protocol pdf
+!zad3_protokol.pdf
+
+# ignore odt files
+# *.odt
+
+# ignore data folders
+data/
+
