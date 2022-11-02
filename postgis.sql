@@ -12,6 +12,13 @@ FROM public.planet_osm_polygon WHERE admin_level = '4'
 ORDER BY size;
 
 -- 4.
+SELECT ST_PolygonFromText('POLYGON((
+						  48.37502 17.59864, 
+						  48.37483 17.59870, 
+						  48.37486 17.59895,
+						  48.37506 17.59888,
+						  48.37502 17.59864))') AS way;
+
 -- podmienka 1
 EXPLAIN ANALYSE
 SELECT username FROM authors 
