@@ -1,7 +1,10 @@
 -- 2.
 SELECT name, ST_AsText(ST_TRANSFORM(way, 4326)::geography)
 FROM public.planet_osm_polygon WHERE admin_level = '4';
- 
+
+-- pre zobrazenie mapy kliknut na Geometry Viewer
+SELECT * FROM public.planet_osm_polygon WHERE admin_level = '4'; 
+
 -- nastavenia parametrov
 SHOW max_parallel_workers_per_gather;
 SET max_parallel_workers_per_gather = 8;
@@ -12,33 +15,36 @@ FROM public.planet_osm_polygon WHERE admin_level = '4'
 ORDER BY size;
 
 -- 4.
+SELECT * FROM planet_osm_polygon LIMIT 10;
+
 SELECT ST_PolygonFromText('POLYGON((
 						  48.37502 17.59864, 
 						  48.37483 17.59870, 
 						  48.37486 17.59895,
 						  48.37506 17.59888,
-						  48.37502 17.59864))') AS way;
+						  48.37502 17.59864))', 4326) AS way;
+						  
+SELECT ST_AREA(ST_TRANSFORM(way, 4326)::geography)::real FROM planet_osm_polygon 
+WHERE name='Spartakovská 9';
 
--- podmienka 1
-EXPLAIN ANALYSE
-SELECT username FROM authors 
-WHERE 
-	followers_count >= 100 AND 
-	followers_count <= 200;
-	
--- podmienka 2
-EXPLAIN ANALYSE
-SELECT username FROM authors 
-WHERE 
-	followers_count >= 100 AND 
-	followers_count <= 120;
+UPDATE planet_osm_polygon 
+SET way_area = ST_AREA(ST_TRANSFORM(way, 4326)::geography)::real
+WHERE name='Home';
 
--- parameter parallel_tuple_cost može za nepoužitie paralelizácie pri podmienke 1
-SHOW parallel_tuple_cost;
+DELETE FROM planet_osm_polygon
+WHERE name='Home';
 
-SET parallel_tuple_cost = 0;
+INSERT INTO planet_osm_polygon("addr:housename", "addr:housenumber", building, name, z_order, way) 
+VALUES(
+	'Spartakovská', '9', 'yes', 'Home', 0, ST_TRANSFORM(ST_PolygonFromText(
+	'POLYGON((17.59864 48.37502, 17.59870 48.37483, 17.59895 48.37486, 
+	17.59888 48.37506, 17.59864 48.37502))', 4326), 3857)
+);
 
-SET parallel_tuple_cost = 0.1;
+SELECT name, ST_AsText(ST_TRANSFORM(way, 4326)::geography), * FROM planet_osm_polygon 
+WHERE admin_level = '4' OR name='Home';
+
+SELECT ST_SRID(way) FROM planet_osm_polygon;
 
 -- 5.
 CREATE INDEX idx_authors_followers_count ON authors USING BTREE(followers_count);
