@@ -2,38 +2,30 @@
 SELECT name, ST_AsText(ST_TRANSFORM(way, 4326)::geography)
 FROM public.planet_osm_polygon WHERE admin_level = '4';
 
--- pre zobrazenie mapy kliknut na Geometry Viewer
-SELECT * FROM public.planet_osm_polygon WHERE admin_level = '4'; 
+-- pre zobrazenie mapy kliknut na Geometry Viewer pre way
+SELECT way FROM public.planet_osm_polygon WHERE admin_level = '4'; 
 
 -- nastavenia parametrov
-SHOW max_parallel_workers_per_gather;
-SET max_parallel_workers_per_gather = 8;
+--SHOW max_parallel_workers_per_gather;
+--SET max_parallel_workers_per_gather = 8;
 
 -- 3.
 SELECT name, ST_AREA(ST_TRANSFORM(way, 4326)::geography)/POWER(1000, 2) AS size
 FROM public.planet_osm_polygon WHERE admin_level = '4'
 ORDER BY size;
 
--- 4.
-SELECT * FROM planet_osm_polygon LIMIT 10;
+-- 4.						  
+--SELECT ST_AREA(ST_TRANSFORM(way, 4326)::geography)::real FROM planet_osm_polygon 
+--WHERE name='Home';
 
-SELECT ST_PolygonFromText('POLYGON((
-						  48.37502 17.59864, 
-						  48.37483 17.59870, 
-						  48.37486 17.59895,
-						  48.37506 17.59888,
-						  48.37502 17.59864))', 4326) AS way;
-						  
-SELECT ST_AREA(ST_TRANSFORM(way, 4326)::geography)::real FROM planet_osm_polygon 
-WHERE name='Spartakovská 9';
+-- nájdenie súradnicového systému pre stĺpec way
+SELECT DISTINCT ST_SRID(way) FROM planet_osm_polygon; -- 3857
 
-UPDATE planet_osm_polygon 
-SET way_area = ST_AREA(ST_TRANSFORM(way, 4326)::geography)::real
-WHERE name='Home';
-
+-- vymazanie vloženého domu
 DELETE FROM planet_osm_polygon
 WHERE name='Home';
 
+-- vloženie domu
 INSERT INTO planet_osm_polygon("addr:housename", "addr:housenumber", building, name, z_order, way) 
 VALUES(
 	'Spartakovská', '9', 'yes', 'Home', 0, ST_TRANSFORM(ST_PolygonFromText(
@@ -41,176 +33,80 @@ VALUES(
 	17.59888 48.37506, 17.59864 48.37502))', 4326), 3857)
 );
 
-SELECT name, ST_AsText(ST_TRANSFORM(way, 4326)::geography), * FROM planet_osm_polygon 
-WHERE admin_level = '4' OR name='Home';
+-- vloženie záznamu pre stĺpec way_area
+--UPDATE planet_osm_polygon 
+--SET way_area = ST_AREA(ST_TRANSFORM(way, 4326)::geography)::real
+--WHERE name='Home';
 
-SELECT ST_SRID(way) FROM planet_osm_polygon;
+-- zobrazenie výsledku
+SELECT * FROM planet_osm_polygon WHERE name='Home';
 
 -- 5.
-CREATE INDEX idx_authors_followers_count ON authors USING BTREE(followers_count);
-
--- 6.
-CREATE INDEX idx_authors_name_insert ON authors USING BTREE(name);
-CREATE INDEX idx_authors_followers_count_insert ON authors USING BTREE(followers_count);
-CREATE INDEX idx_authors_description_insert ON authors USING BTREE(description);
-
-SELECT max(id) FROM authors;
-
-SELECT * FROM authors WHERE id=1;
-
-DELETE FROM authors WHERE id=1; 
-
-EXPLAIN ANALYSE
-INSERT INTO authors(
-	id, name, username, description, followers_count, following_count, 
-	tweet_count, listed_count
-) VALUES(1, 'Erik', 'clever_username', 'txt', 0, 89, 74, 56);
-
-DROP INDEX idx_authors_name_insert;
-DROP INDEX idx_authors_followers_count_insert;
-DROP INDEX idx_authors_description_insert;
-
--- 7.
-CREATE INDEX idx_conversations_retweet_count ON conversations USING BTREE(retweet_count);
-
-CREATE INDEX idx_conversations_content ON conversations USING BTREE(content);
-
--- 8.
-
--- get all indexes in schema to get names of indexes
-SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = 'public'
-ORDER BY tablename, indexname;
-	
--- extension for inspecting indexes
-CREATE EXTENSION pageinspect;
-
-SELECT * FROM bt_metap('idx_authors_followers_count');
-
-SELECT * FROM bt_page_stats('idx_authors_followers_count', 1);
-
-SELECT * FROM bt_metap('idx_authors_username');
-
-SELECT * FROM bt_page_stats('idx_authors_username', 1);
-
-SELECT * FROM bt_metap('idx_conversations_content');
-
-SELECT * FROM bt_page_stats('idx_conversations_content', 1);
-
-SELECT * FROM bt_metap('idx_authors_name_insert');
-
-SELECT * FROM bt_page_stats('idx_authors_name_insert', 1);
-
-SELECT * FROM bt_metap('idx_conversations_retweet_count');
-
-SELECT * FROM bt_page_stats('idx_conversations_retweet_count', 1);
-
--- 9.
-EXPLAIN ANALYSE
-SELECT content FROM conversations 
-WHERE content LIKE '%Gates%';
-
-DROP INDEX idx_conversations_content;
-CREATE INDEX idx_conversations_content ON conversations USING BTREE(content);
-
--- 10.
-EXPLAIN ANALYSE
-SELECT content FROM conversations 
-WHERE possibly_sensitive = TRUE AND content LIKE 'There are no excuses%';
-
--- 11.
-DROP INDEX idx_conversations_content_tweet;
-
-CREATE INDEX idx_conversations_content_tweet ON conversations USING BTREE(content)
-WHERE LOWER(REVERSE(content)) LIKE LOWER(REVERSE('%https://t.co/pkFwLXZlEm'));
-
-EXPLAIN ANALYSE
-SELECT content FROM conversations 
-WHERE LOWER(REVERSE(content)) LIKE LOWER(REVERSE('%https://t.co/pkFwLXZlEm'));
-
--- 12.
-EXPLAIN ANALYSE
-SELECT content FROM conversations
-WHERE reply_count > 150 AND retweet_count >= 5000
-ORDER BY quote_count;
-
-DROP INDEX idx_conversations_reply_count;
-DROP INDEX idx_conversations_quote_count;
-DROP INDEX idx_conversations_12;
-
-CREATE INDEX idx_conversations_reply_count ON conversations USING BTREE(reply_count);
-CREATE INDEX idx_conversations_quote_count ON conversations USING BTREE(quote_count);
-
-CREATE INDEX idx_conversations_12 ON conversations USING BTREE(content)
-WHERE reply_count > 150 AND retweet_count >= 5000;
-
--- 13.
-CREATE INDEX idx_conversations_13 ON conversations USING BTREE(
-	content,
-	reply_count, 
-	retweet_count, 
-	quote_count
-) WHERE reply_count > 150 AND retweet_count >= 5000;
-
--- 14.
-DROP INDEX idx_conversations_gin;
-CREATE INDEX idx_conversations_gin ON conversations USING GIN(to_tsvector('simple', content))
-WHERE possibly_sensitive = TRUE AND content LIKE '%Putin%New World Order%';
-
-DROP INDEX idx_conversations_gist;
-CREATE INDEX idx_conversations_gist ON conversations USING GIST(to_tsvector('simple', content))
-WHERE possibly_sensitive = TRUE AND content LIKE '%Putin%New World Order%';
-
-EXPLAIN ANALYSE
-SELECT content FROM conversations
-WHERE 
-	possibly_sensitive = TRUE AND 
-	content LIKE '%Putin%New World Order%';
-
--- 15.
-CREATE INDEX idx_url ON links USING GIN(to_tsvector('simple', url)) WHERE url LIKE '%darujme.sk%';
-
-EXPLAIN ANALYSE
-SELECT url FROM links WHERE url LIKE '%darujme.sk%';
-
--- 16.
-
-DROP INDEX idx_authors_gist_16;
-CREATE INDEX idx_authors_gist_16 ON authors USING GIST(
-	to_tsvector('simple', username),
-	to_tsvector('simple', description)
-)
-WHERE 
-	to_tsvector('simple', authors.username) || 
-	to_tsvector('simple', authors.description) @@
-	to_tsquery('Володимир & Президент');
-	
-DROP INDEX idx_authors_gin_16;
-CREATE INDEX idx_authors_gin_16 ON authors USING GIN(
-	to_tsvector('english', username || ' ' || description)
-)
-WHERE
-	to_tsvector('english', username || ' ' || description) @@
-	to_tsquery('Володимир & Президент');
-
-DROP INDEX idx_conversations_gin_16;
-CREATE INDEX idx_conversations_gin_16 ON conversations USING GIN(
-	to_tsvector('english', content)
-)
-
-DROP INDEX idx_authors_btree_16;
-CREATE INDEX idx_authors_btree_16 ON authors USING BTREE(id);
-
-DROP INDEX idx_conversations_btree_16;
-CREATE INDEX idx_conversations_btree_16 ON conversations USING BTREE(
-	author_id,
-	retweet_count DESC
+SELECT name
+FROM planet_osm_polygon
+WHERE admin_level = '4' AND ST_INTERSECTS(
+	way,
+	(SELECT way
+	FROM planet_osm_polygon
+	WHERE name='Home')
 );
 
-EXPLAIN ANALYSE
-SELECT authors.username, authors.description, conversations.content 
-FROM authors 
-JOIN conversations ON authors.id = conversations.author_id
-WHERE
-	to_tsvector('english', authors.username || ' ' || authors.description || ' ' || conversations.content) @@
-	to_tsquery('Володимир & Президент')
-ORDER BY conversations.retweet_count DESC;
+--  6.
+-- nájdenie súradnicového systému pre stĺpec way
+SELECT DISTINCT ST_SRID(way) FROM planet_osm_point; -- 3857
+
+--SELECT * FROM planet_osm_point LIMIT 10;
+
+-- vymazanie vloženého domu
+DELETE FROM planet_osm_point
+WHERE name='location';
+
+-- vloženie polohy
+INSERT INTO planet_osm_point("addr:housename", "addr:housenumber", building, name, z_order, way) 
+VALUES(
+	'Spartakovská', '9', 'yes', 'location', 0, 
+	ST_TRANSFORM(ST_SetSRID(ST_MakePoint(17.5988032, 48.3749505), 4326), 3857)
+);
+
+-- zobrazenie výsledku
+SELECT * FROM planet_osm_point WHERE name='location';
+
+-- 7.
+SELECT name
+FROM planet_osm_polygon
+WHERE name='Home' AND ST_INTERSECTS(
+	way,
+	(SELECT way
+	FROM planet_osm_point
+	WHERE name='location')
+);
+
+-- 8.
+--SELECT way FROM planet_osm_polygon
+--WHERE name='Fakulta informatiky a informačných technológií STU';
+
+SELECT ST_Distance(ST_TRANSFORM(ST_TRANSFORM(polygon.way, 4326), 5514), 
+				   ST_TRANSFORM(ST_TRANSFORM(point.way, 4326), 5514))/1000 AS distance
+FROM planet_osm_polygon polygon, planet_osm_point point
+WHERE 
+	polygon.name='Fakulta informatiky a informačných technológií STU' AND 
+	point.name='location';
+
+SELECT ST_Distance(ST_TRANSFORM(ST_TRANSFORM(polygon.way, 5514), 4326)::geography, 
+				   ST_TRANSFORM(ST_TRANSFORM(point.way, 5514), 4326)::geography)/1000 AS distance
+FROM planet_osm_polygon polygon, planet_osm_point point
+WHERE 
+	polygon.name='Fakulta informatiky a informačných technológií STU' AND 
+	point.name='location';
+
+-- 10.
+
+-- použijeme SK% lebo hladama slovenske okresy
+SELECT ST_AsText(ST_TRANSFORM(ST_Centroid(
+	(SELECT way	FROM public.planet_osm_polygon 
+	WHERE admin_level = '8' AND ref LIKE 'SK%'
+	ORDER BY (ST_AREA(ST_TRANSFORM(way, 4326)::geography)::real/POWER(1000, 2)::real) LIMIT 1)
+	), 4326)::geography
+);
+
+-- 11.
