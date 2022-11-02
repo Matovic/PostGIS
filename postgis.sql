@@ -1,21 +1,15 @@
--- 1.
-SELECT name, ST_AsText(way) 
+-- 2.
+SELECT name, ST_AsText(ST_TRANSFORM(way, 4326)::geography)
 FROM public.planet_osm_polygon WHERE admin_level = '4';
-
--- 2. 
--- pozrieme parametre
+ 
+-- nastavenia parametrov
 SHOW max_parallel_workers_per_gather;
-
-SHOW max_worker_processes;
-SHOW max_parallel_workers;
-
--- zmenime nastavenia parametra
-SET max_parallel_workers_per_gather = 4;
 SET max_parallel_workers_per_gather = 8;
 
 -- 3.
---DROP INDEX idx_authors_username;
-CREATE INDEX idx_authors_username ON authors USING BTREE(username);
+SELECT name, ST_AREA(ST_TRANSFORM(way, 4326)::geography)/POWER(1000, 2) AS size
+FROM public.planet_osm_polygon WHERE admin_level = '4'
+ORDER BY size;
 
 -- 4.
 -- podmienka 1
