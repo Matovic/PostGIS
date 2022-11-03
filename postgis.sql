@@ -92,8 +92,8 @@ WHERE
 	polygon.name='Fakulta informatiky a informačných technológií STU' AND 
 	point.name='location';
 
-SELECT ST_Distance(ST_TRANSFORM(ST_TRANSFORM(polygon.way, 5514), 4326)::geography, 
-				   ST_TRANSFORM(ST_TRANSFORM(point.way, 5514), 4326)::geography)/1000 AS distance
+SELECT ST_Distance(ST_TRANSFORM(polygon.way, 4326)::geography, 
+				   ST_TRANSFORM(point.way, 4326)::geography)/1000 AS distance
 FROM planet_osm_polygon polygon, planet_osm_point point
 WHERE 
 	polygon.name='Fakulta informatiky a informačných technológií STU' AND 
@@ -134,3 +134,34 @@ WHERE polygon.name='okres Malacky' OR polygon.name='okres Pezinok';
 
 SELECT * FROM public.planet_osm_roads LIMIT 10;
 --);
+
+-- 12.
+SELECT *
+FROM public.spatial_ref_sys
+WHERE srid=5514;
+LIMIT 10;
+
+-- 13.
+
+-- ziskaj SR orkesy okrem malacek a pezinok
+SELECT name
+FROM public.planet_osm_polygon 
+WHERE 
+	name!='okres Malacky' AND name!='okres Pezinok' AND
+	admin_level = '8' AND ref LIKE 'SK%';
+	
+-- nechcene okresy
+SELECT ST_TRANSFORM(
+	(SELECT ST_Union(way) 
+	FROM public.planet_osm_polygon 
+	WHERE name LIKE 'okres Bratislava %'), 4326)::geography
+
+-- do final daj way
+SELECT name
+FROM public.planet_osm_polygon
+WHERE ST_DISTANCE(ST_TRANSFORM(way, 4326), ST_TRANSFORM(
+	(SELECT ST_Union(way) 
+	FROM public.planet_osm_polygon 
+	WHERE name LIKE 'okres Bratislava %'), 
+	4326)::geography) < 20000
+
