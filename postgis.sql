@@ -110,3 +110,27 @@ SELECT ST_AsText(ST_TRANSFORM(ST_Centroid(
 );
 
 -- 11.
+--CREATE TABLE task11 AS(
+SELECT ST_Union(polygon.way) AS okresy --COUNT(*)
+FROM public.planet_osm_roads road, public.planet_osm_polygon polygon
+WHERE
+	(polygon.name='okres Malacky' OR polygon.name='okres Pezinok') 
+	(ST_Distance(ST_TRANSFORM(road.way, 4326), ST_TRANSFORM(polygon.way, 4326))) 
+				  (
+					  SELECT ST_TRANSFORM(ST_Union(way), 4326) 
+					  FROM public.planet_osm_polygon 
+					  WHERE name='okres Malacky' OR name='okres Pezinok')
+				  ) < 10000
+--LIMIT 10;
+
+SELECT * --COUNT(*)
+FROM public.planet_osm_polygon polygon
+JOIN public.planet_osm_roads road
+ON ST_Union(polygon.way) AND ST_Distance(ST_TRANSFORM(road.way, 4326), ST_TRANSFORM(polygon.way, 4326)) < 10000
+WHERE polygon.name='okres Malacky' OR polygon.name='okres Pezinok';
+
+--LIMIT 10;
+
+
+SELECT * FROM public.planet_osm_roads LIMIT 10;
+--);
