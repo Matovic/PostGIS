@@ -4,6 +4,5 @@ TASK 01 - import:
 osm2pgsql -c -d PostGIS -U postgres -W -H localhost -S /home/erik/FIIT/2_Ing/1_semester/PDT/cvicenia/zadanie3/default.style /home/erik/FIIT/2_Ing/1_semester/PDT/cvicenia/zadanie3/data/slovakia-latest.osm.pbf
 
 TASK 12 - import:
-ogr2ogr -f PostgreSQL "PG:dbname=PostGIS" /home/erik/FIIT/2_Ing/1_semester/PDT/cvicenia/zadanie3/data/USJ_hranice_1.gpkg -lco LAUNDER=NO
 
-psql -U postgres -h localhost -d PostGIS -W
+ogr2ogr -f "PostgreSQL" -a_srs "EPSG:5514" PG:"host=localhost user=<username> password=<password> dbname=PostGIS" -nlt MULTIPOLYGON -nln <nazov tabulky> -sql "SELECT * FROM ku_1" -dialect SQLite -overwrite <cest k suboru gpkg>

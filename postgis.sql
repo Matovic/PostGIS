@@ -110,37 +110,41 @@ SELECT ST_AsText(ST_TRANSFORM(ST_Centroid(
 );
 
 -- 11.
+-- nájdenie súradnicového systému pre stĺpec way
+SELECT DISTINCT ST_SRID(way) FROM planet_osm_roads; -- 3857
+
 --CREATE TABLE task11 AS(
-SELECT ST_Union(polygon.way) AS okresy --COUNT(*)
-FROM public.planet_osm_roads road, public.planet_osm_polygon polygon
+SELECT *
+FROM public.planet_osm_roads road
 WHERE
-	(polygon.name='okres Malacky' OR polygon.name='okres Pezinok') 
-	(ST_Distance(ST_TRANSFORM(road.way, 4326), ST_TRANSFORM(polygon.way, 4326))) 
+	(ST_Distance(ST_TRANSFORM(road.way, 4326)::geography,
 				  (
-					  SELECT ST_TRANSFORM(ST_Union(way), 4326) 
+					  SELECT ST_TRANSFORM(ST_Union(way), 4326)::geography 
 					  FROM public.planet_osm_polygon 
 					  WHERE name='okres Malacky' OR name='okres Pezinok')
-				  ) < 10000
---LIMIT 10;
+				  ) <= 10000)
 
+-- JOIN NEFUNGUJE
 SELECT * --COUNT(*)
 FROM public.planet_osm_polygon polygon
 JOIN public.planet_osm_roads road
-ON ST_Union(polygon.way) AND ST_Distance(ST_TRANSFORM(road.way, 4326), ST_TRANSFORM(polygon.way, 4326)) < 10000
+ON ST_Distance(ST_TRANSFORM(road.way, 4326), ST_TRANSFORM(ST_Union(polygon.way), 4326)) < 10000
 WHERE polygon.name='okres Malacky' OR polygon.name='okres Pezinok';
 
---LIMIT 10;
-
-
-SELECT * FROM public.planet_osm_roads LIMIT 10;
+SELECT * FROM public.planet_osm_roads WHERE osm_id='-388266';--LIMIT 10;
 --);
 
 -- 12.
-SELECT *
-FROM public.spatial_ref_sys
-WHERE srid=5514;
-LIMIT 10;
+SELECT * FROM katastralne_uzemie WHERE nm4='Trnava';
 
+SELECT ST_Length(ST_TRANSFORM(road.way, 4326)::geography) AS length, *
+FROM public.planet_osm_roads road
+WHERE ST_INTERSECTS(ST_TRANSFORM(way, 4326)::geography, (
+		SELECT ST_TRANSFORM(polygon.way, 4326)::geography 
+	    FROM public.planet_osm_polygon polygon
+	    WHERE polygon.name='okres Trnava'))
+ORDER BY length DESC
+LIMIT 1
 -- 13.
 
 -- ziskaj SR orkesy okrem malacek a pezinok
@@ -157,11 +161,13 @@ SELECT ST_TRANSFORM(
 	WHERE name LIKE 'okres Bratislava %'), 4326)::geography
 
 -- do final daj way
-SELECT name
+SELECT ST_AREA(ST_TRANSFORM(ST_UNION(way), 4326)::geography)/POWER(1000, 2) AS oblast_vymera
 FROM public.planet_osm_polygon
-WHERE ST_DISTANCE(ST_TRANSFORM(way, 4326), ST_TRANSFORM(
-	(SELECT ST_Union(way) 
-	FROM public.planet_osm_polygon 
-	WHERE name LIKE 'okres Bratislava %'), 
-	4326)::geography) < 20000
+WHERE 
+	ref LIKE 'SK%' AND admin_level='8' AND name NOT LIKE 'okres Bratislava %' AND
+	ST_DISTANCE(ST_TRANSFORM(way, 4326)::geography, ST_TRANSFORM(
+		(SELECT ST_Union(way) 
+		FROM public.planet_osm_polygon 
+		WHERE name LIKE 'okres Bratislava %'), 
+		4326)::geography) <= 20000
 
